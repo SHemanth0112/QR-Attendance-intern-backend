@@ -21,6 +21,7 @@ app.use(morgan('dev'));
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/qr-attendance';
 
+// Connect to MongoDB (don't exit on failure in serverless environment)
 mongoose.connect(MONGODB_URI, {
   serverApi: {
     version: '1',
@@ -33,8 +34,27 @@ mongoose.connect(MONGODB_URI, {
   })
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err);
-    process.exit(1);
+    // Don't exit in serverless environment - let individual requests fail gracefully
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   });
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true,
+    message: 'QR Attendance System API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth/*',
+      sessions: '/api/sessions/*',
+      attendance: '/api/attendance/*',
+      qr: '/api/qr/*'
+    }
+  });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -44,7 +64,12 @@ app.use('/api/qr', qrRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'Server is running', timestamp: new Date() });
+  res.json({ 
+    success: true,
+    status: 'Server is running', 
+    timestamp: new Date(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
 });
 
 // Error handling middleware
